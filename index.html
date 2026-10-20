@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Stickman Legends</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --p1: #3b82f6;
+      --p2: #ef4444;
+      --accent: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      background: #050714; color: #fff;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden; touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none; user-select: none;
+    }
+    #game-wrap {
+      width: 100vw; height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      position: relative; background: var(--bg);
+    }
+    #arena {
+      position: relative;
+      width: 94vw; height: 62vh;
+      max-width: 960px; max-height: 600px;
+      aspect-ratio: 960 / 640;
+      border: 3px solid rgba(255,255,255,0.18);
+      border-radius: 12px; overflow: hidden;
+      background: #080c18;
+      box-shadow: 0 0 40px rgba(0,0,0,0.6);
+    }
+    canvas { width: 100%; height: 100%; display: block; }
+    .hud {
+      width: 94vw; max-width: 960px;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 4px; gap: 16px;
+    }
+    .bar-row {
+      display: flex; flex-direction: column;
+      align-items: flex-start; gap: 6px; width: 40%;
+    }
+    .bar-row.p2 { align-items: flex-end; }
+    .name {
+      font-size: 14px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; opacity: 0.8;
+    }
+    .health {
+      width: 100%; height: 14px; background: rgba(255,255,255,0.12);
+      border-radius: 7px; overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .hp-bar { height: 100%; width: 100%; background: #3b82f6; border-radius: 7px; transition: width 0.1s ease; }
+    .p2 .hp-bar { background: #ef4444; }
+    .energy {
+      width: 100%; height: 7px; background: rgba(255,255,255,0.10);
+      border-radius: 4px; margin-top: 4px; overflow: hidden;
+    }
+    .en-bar {
+      height: 100%; width: 0%; background: var(--accent);
+      border-radius: 4px; box-shadow: 0 0 10px var(--accent);
+      transition: width 0.1s ease;
+    }
+    .timer { display: flex; flex-direction: column; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
+    #round-time { font-size: 28px; font-weight: 800; color: #fff; }
+    #round-num { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
+    .touch-ui {
+      position: relative; width: 94vw; max-width: 960px;
+      display: flex; gap: 24px; align-items: center; justify-content: center;
+      padding: 16px 8px; opacity: 0.95; pointer-events: none;
+    }
+    .touch-ui.portrait { flex-direction: column; align-items: center; gap: 12px; }
+    .touch-ui.landscape { flex-direction: row; align-items: center; }
+    .joystick {
+      pointer-events: auto; position: relative; width: 130px; height: 130px;
+      background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 50%; backdrop-filter: blur(4px);
+    }
+    .joystick-base {
+      position: absolute; top: 50%; left: 50%; width: 90px; height: 90px;
+      background: rgba(255,255,255,0.10); border-radius: 50%;
+      transform: translate(-50%, -50%); border: 1px solid rgba(255,255,255,0.2);
+    }
+    .joystick-knob {
+      position: absolute; top: 50%; left: 50%; width: 46px; height: 46px;
+      background: rgba(255,255,255,0.5); border-radius: 50%;
+      transform: translate(-50%, -50%); border: 1px solid rgba(255,255,255,0.3);
+      box-shadow: 0 0 12px rgba(255,255,255,0.4);
+    }
+    .actions { pointer-events: auto; display: grid; gap: 12px; }
+    .btn {
+      width: 72px; height: 72px; background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.25); border-radius: 14px;
+      color: #fff; font-size: 12px; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      outline: none; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .btn:active { background: rgba(255,255,255,0.25); transform: scale(0.92); }
+    .btn.special { background: rgba(251,191,36,0.15); border-color: rgba(251,191,36,0.4); color: #fbbf24; }
+    .btn.special:active { background: rgba(251,191,36,0.35); }
+    .touch-ui.landscape .actions { grid-template-columns: repeat(3, 72px); grid-template-rows: repeat(2, 72px); }
+    .touch-ui.portrait .actions { grid-template-columns: repeat(6, 60px); grid-template-rows: 60px; }
+    .touch-ui.portrait .joystick { width: 110px; height: 110px; }
+    .touch-ui.portrait .joystick-base { width: 76px; height: 76px; }
+    .touch-ui.portrait .joystick-knob { width: 40px; height: 40px; }
+    #start-hint {
+      position: absolute; bottom: 8px; width: 100%; text-align: center;
+      opacity: 0.6; font-size: 13px; letter-spacing: 1px; pointer-events: none;
+    }
+    @media (orientation: landscape) and (max-height: 500px) {
+      #arena { height: 55vh; } .touch-ui { padding: 10px 4px; gap: 14px; }
+      .btn { width: 60px; height: 60px; font-size: 10px; }
+      .joystick { width: 100px; height: 100px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="game-wrap">
+    <div id="arena">
+      <canvas id="game-canvas" width="960" height="640"></canvas>
+      <div class="touch-ui" id="touch-ui"></div>
+      <div id="start-hint">Tap or press SPACE to start &bull; P1: WASD + J/K/Space &bull; P2: Arrows + J/K/L</div>
+    </div>
+  </div>
+  <script type="module">
+    /* ============ constants ============ */
+    const C = {
+      CANVAS_WIDTH: 960, CANVAS_HEIGHT: 640,
+      GROUND_Y: 540, ARENA_PADDING: 50,
+      P1_COLOR: '#3b82f6', P2_COLOR: '#ef4444',
+      BG_TOP: '#0b1120', BG_BOTTOM: '#1e293b', GROUND_COLOR: '#475569',
+      HIT_FLASH: '#fbbf24', BLOCK_FLASH: '#22d3ee', ENERGY_AURA: '#818cf8',
+      GRAVITY: 1.10, AIR_FRICTION: 0.96, GROUND_FRICTION: 0.82,
+      WALK_ACCEL: 0.55, WALK_SPEED: 5.0, JUMP_FORCE: -17.5,
+      DOUBLE_JUMP_FORCE: -16.0, FALL_LIMIT: 24, JUMP_COUNT_MAX: 2,
+      DASH_SPEED: 16, DASH_DURATION: 6, DASH_COOLDOWN: 40, DASH_INVULN: 6,
+      DODGE_SPEED: 14, DODGE_DURATION: 8, DODGE_COOLDOWN: 45, DODGE_INVULN: 8,
+      FIGHTER_HEIGHT: 110,
+      PUNCH: { startup: 4, active: 3, recovery: 6, damage: 12, knockbackX: 8, knockbackY: -6, stun: 14, hitbox: { ox: 34, oy: -14, w: 36, h: 26 } },
+      KICK: { startup: 6, active: 4, recovery: 9, damage: 18, knockbackX: 12, knockbackY: -8, stun: 16, hitbox: { ox: 38, oy: 30, w: 42, h: 22 } },
+      AERIAL_PUNCH: { startup: 4, active: 4, recovery: 10, damage: 14, knockbackX: 9, knockbackY: -10, stun: 14, hitbox: { ox: 34, oy: -14, w: 36, h: 26 } },
+      AERIAL_KICK: { startup: 6, active: 5, recovery: 11, damage: 20, knockbackX: 13, knockbackY: -12, stun: 16, hitbox: { ox: 38, oy: 30, w: 42, h: 22 } },
+      COMBO_WINDOW: 14, COMBO_MAX: 3,
+      BLOCK_DAMAGE_REDUCTION: 0.60, HIT_STUN: 14, BLOCK_STUN: 8,
+      INVULN_FRAMES: 8, HITSTOP_TARGET: 4, HITSTOP_ATTACKER: 2,
+      ENERGY_MAX: 100, ENERGY_START: 0, ENERGY_REGEN: 0.30,
+      ENERGY_GAIN_ATTACK: 6, ENERGY_GAIN_HIT: 12, ENERGY_CHARGE_RATE: 1.2,
+      PROJECTILE_COST: 30, BEAM_COST: 55, ENERGY_AURA_THRESHOLD: 90,
+      PROJECTILE: { speed: 13, damage: 22, lifetime: 80, radius: 7, knockbackX: 10, knockbackY: -6 },
+      BEAM: { speed: 16, damage: 30, lifetime: 45, width: 24, length: 320, knockbackX: 14, knockbackY: -8 },
+      ROUND_TIME: 60, PARTICLE_POOL_SIZE: 40, DEBUG_HITBOXES: false,
+      STATE: { IDLE:'idle', WALK:'walk', JUMP:'jump', FALL:'fall', DASH:'dash', DODGE:'dodge', PUNCH:'punch', KICK:'kick', AERIAL_PUNCH:'aerial_punch', AERIAL_KICK:'aerial_kick', BLOCK:'block', CHARGE:'charge', BEAM:'beam', HIT:'hit', DEAD:'dead' }
+    };
+
+    /* ============ effects ============ */
+    class Particle {
+      constructor(){ this.x=0;this.y=0;this.vx=0;this.vy=0;this.life=0;this.decay=0;this.color='#fff';this.size=4;this.active=false; }
+      spawn(x,y,color,speed){ const a=Math.random()*Math.PI*2; const v=Math.random()*speed+1; this.x=x;this.y=y;this.vx=Math.cos(a)*v;this.vy=Math.sin(a)*v-1.5;this.life=1.0;this.decay=0.025+Math.random()*0.045;this.color=color;this.size=Math.random()*4+3;this.active=true;return this; }
+      update(){ this.x+=this.vx;this.y+=this.vy;this.vy+=0.15;this.vx*=0.94;this.life-=this.decay; if(this.life<=0)this.active=false; return this.active; }
+      draw(ctx){ ctx.save();ctx.globalAlpha=this.life;ctx.fillStyle=this.color;ctx.beginPath();ctx.arc(this.x,this.y,this.size,0,Math.PI*2);ctx.fill();ctx.restore(); }
+    }
+    class ParticlePool {
+      constructor(size){ this.size=size;this.pool=[];for(let i=0;i<size;i++)this.pool.push(new Particle()); }
+      spawn(x,y,color,count,speed){ let s=0;for(let i=0;i<this.pool.length&&s<count;i++){const p=this.pool[i];if(!p.active){p.spawn(x,y,color,speed);s++;}} }
+      update(){for(let i=0;i<this.pool.length;i++){const p=this.pool[i];if(p.active)p.update();}}
+      draw(ctx){for(let i=0;i<this.pool.length;i++){const p=this.pool[i];if(p.active)p.draw(ctx);}}
+    }
+    class ScreenShake {
+      constructor(){this.magnitude=0;}
+      trigger(i){this.magnitude=Math.max(this.magnitude,i);}
+      update(){this.magnitude*=0.92;if(this.magnitude<0.4)this.magnitude=0;}
+      offset(){if(!this.magnitude)return{x:0,y:0};return{x:(Math.random()-0.5)*2*this.magnitude,y:(Math.random()-0.5)*2*this.magnitude};}
+    }
+    function drawEnergyAura(ctx,x,y,pulse,intensity){
+      ctx.save();ctx.translate(x,y);
+      const r=34+Math.sin(pulse)*6;
+      ctx.globalAlpha=0.25+intensity*0.35;ctx.strokeStyle='#818cf8';ctx.lineWidth=4;
+      ctx.beginPath();ctx.arc(0,-42,r,0,Math.PI*2);ctx.stroke();
+      ctx.globalAlpha=0.15+intensity*0.2;ctx.beginPath();ctx.arc(0,-42,r+8,0,Math.PI*2);ctx.stroke();
+      ctx.restore();
+    }
+
+    /* ============ combat ============ */
+    function boxesOverlap(a,b){return a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;}
+    function resolveHit(hitbox,target,particles,shake){
+      if(!hitbox||!hitbox.active||target.dead||target.invuln>0)return null;
+      const hurt=target.updateHurtbox();
+      if(!boxesOverlap(hitbox,hurt))return null;
+      let ht=hitbox.attacker.hitTargets;if(!ht){ht=new Set();hitbox.attacker.hitTargets=ht;}
+      if(ht.has(target))return null;ht.add(target);
+      const res=target.takeDamage(hitbox.damage,hitbox.kbX,hitbox.kbY,hitbox.stun,hitbox.attacker);
+      const cx=(hitbox.left+hitbox.right)/2,cy=(hitbox.top+hitbox.bottom)/2;
+      const color=res.blocked?C.BLOCK_FLASH:C.HIT_FLASH;
+      particles.spawn(cx,cy,color,res.blocked?6:14,res.blocked?3:7);
+      shake.trigger(res.blocked?5:11);
+      if(hitbox.attacker&&!hitbox.attacker.dead)hitbox.attacker.healEnergy(C.ENERGY_GAIN_ATTACK);
+      target.hitStop=C.HITSTOP_TARGET;
+      if(hitbox.attacker&&hitbox.attacker!==target)hitbox.attacker.hitStop=Math.max(hitbox.attacker.hitStop,C.HITSTOP_ATTACKER);
+      return res;
+    }
+    function processCombat(p1,p2,particles,shake){
+      let p1Hit=null,p2Hit=null;
+      const p1hb=p1.updateHitbox();if(p1hb)p1Hit=resolveHit(p1hb,p2,particles,shake);
+      const p2hb=p2.updateHitbox();if(p2hb)p2Hit=resolveHit(p2hb,p1,particles,shake);
+      return{p1Hit,p2Hit};
+    }
+    function resolveProjectileHit(pr,target,particles,shake){
+      if(target.dead||target.invuln>0)return null;
+      const hb=pr.worldHitbox;const hurt=target.updateHurtbox();
+      if(!hb||!boxesOverlap(hb,hurt))return null;
+      pr.active=false;
+      const res=target.takeDamage(hb.damage,hb.kbX,hb.kbY,hb.stun,hb.attacker);
+      const cx=(hb.left+hb.right)/2,cy=(hb.top+hb.bottom)/2;
+      particles.spawn(cx,cy,'#fbbf24',12,7);shake.trigger(10);
+      if(hb.attacker&&!hb.attacker.dead)hb.attacker.healEnergy(C.ENERGY_GAIN_ATTACK);
+      target.hitStop=C.HITSTOP_TARGET;
+      if(pr.owner&&pr.owner!==target)pr.owner.hitStop=Math.max(pr.owner.hitStop,C.HITSTOP_ATTACKER);
+      return res;
+    }
+
+    /* ============ projectile ============ */
+    class Projectile {
+      constructor(owner,type='bolt'){
+        this.owner=owner;this.type=type;const dir=owner.facingDir;
+        this.x=owner.x+dir*34;this.y=owner.y-42;
+        this.vx=dir*(type==='beam'?C.BEAM.speed:C.PROJECTILE.speed);this.vy=0;
+        this.life=type==='beam'?C.BEAM.lifetime:C.PROJECTILE.lifetime;
+        this.active=true;this.radius=C.PROJECTILE.radius;
+        this.damage=type==='beam'?C.BEAM.damage:C.PROJECTILE.damage;
+        this.kbX=type==='beam'?C.BEAM.knockbackX:C.PROJECTILE.knockbackX;
+        this.kbY=type==='beam'?C.BEAM.knockbackY:C.PROJECTILE.knockbackY;
+        this.width=type==='beam'?C.BEAM.width:C.PROJECTILE.radius*2;
+        this.length=type==='beam'?C.BEAM.length:0;
+      }
+      update(){this.x+=this.vx;this.y+=this.vy;this.life--;if(this.life<=0)this.active=false;}
+      draw(ctx){
+        ctx.save();
+        if(this.type==='beam'){
+          const dir=this.owner.facingDir;const sx=this.x;const sy=this.y;const ex=sx+dir*this.length;
+          ctx.strokeStyle='#fbbf24';ctx.lineWidth=this.width;ctx.lineCap='round';
+          ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,sy);ctx.stroke();
+          ctx.strokeStyle='#fff';ctx.lineWidth=this.width*0.35;
+          ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,sy);ctx.stroke();
+          ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ex,sy,this.width,0,Math.PI*2);ctx.fill();
+        }else{
+          ctx.fillStyle='#fbbf24';ctx.beginPath();ctx.arc(this.x,this.y,this.radius,0,Math.PI*2);ctx.fill();
+          ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(this.x,this.y,this.radius*0.4,0,Math.PI*2);ctx.fill();
+        }
+        ctx.restore();
+      }
+      get worldHitbox(){
+        if(this.type==='beam'){
+          const dir=this.owner.facingDir;const x0=this.x;const x1=this.x+dir*this.length;
+          return{left:Math.min(x0,x1)-this.width/2,right:Math.max(x0,x1)+this.width/2,top:this.y-this.width/2,bottom:this.y+this.width/2,damage:this.damage,kbX:this.kbX*dir,kbY:this.kbY,stun:C.HIT_STUN,attacker:this.owner,active:this.active,isProjectile:true};
+        }
+        return{left:this.x-this.radius,right:this.x+this.radius,top:this.y-this.radius,bottom:this.y+this.radius,damage:this.damage,kbX:this.kbX*this.owner.facingDir,kbY:this.kbY,stun:C.HIT_STUN,attacker:this.owner,active:this.active,isProjectile:true};
+      }
+    }
+
+    /* ============ fighter ============ */
+    class Fighter {
+      constructor(id,side,color){
+        this.id=id;this.side=side;this.color=color;
+        this.x=side===1?C.CANVAS_WIDTH-150:150;
+        this.y=C.GROUND_Y-C.FIGHTER_HEIGHT/2;this.vx=0;this.vy=0;this.grounded=false;
+        this.facingDir=side===1?-1:1;
+        this.maxHp=100;this.hp=100;this.energy=C.ENERGY_START;this.dead=false;
+        this.jumpCount=0;this.dashCooldown=0;this.dodgeCooldown=0;
+        this.state=C.STATE.IDLE;this.stateTimer=0;this.frame=0;
+        this.invuln=0;this.hitStop=0;this.hitstun=0;
+        this.comboStage=0;this.comboTimer=0;this.chargeLevel=0;
+        this.hurtbox={left:0,right:0,top:0,bottom:0};
+        this.hitbox={left:0,right:0,top:0,bottom:0,damage:0,kbX:0,kbY:0,stun:0,attacker:this,active:false};
+        this.hitTargets=null;
+        this.keys={};this.just=null;
+        this.animFrame=0;this.pulse=0;
+      }
+      held(k){return!!this.keys[k];}pressed(k){return!!(this.just&&this.just.has(k));}
+      canAct(){return!this.dead&&this.hitstun<=0&&this.hitStop<=0&&this.state!==C.STATE.DEAD&&this.state!==C.STATE.BEAM;}
+      setState(state,duration){if(this.state===state&&state!==C.STATE.BLOCK&&state!==C.STATE.CHARGE)return;this.state=state;this.stateTimer=duration;this.frame=0;this.hitbox.active=false;this.comboTimer=0;}
+      returnToNeutral(){if(this.grounded)this.setState(Math.abs(this.vx)>0.1?C.STATE.WALK:C.STATE.IDLE,9999);else this.setState(this.vy>0?C.STATE.FALL:C.STATE.JUMP,9999);}
+      startAttack(isPunch){
+        if(!this.canAct())return false;
+        const airborne=!this.grounded;const inCombo=this.comboTimer>0&&this.comboStage>0;
+        if(isPunch&&this.grounded&&inCombo&&this.comboStage<C.COMBO_MAX){this.comboStage++;this.comboTimer=C.COMBO_WINDOW;}
+        else if(isPunch&&this.grounded){this.comboStage=1;this.comboTimer=C.COMBO_WINDOW;}
+        else{this.comboStage=0;this.comboTimer=0;}
+        let data;
+        if(airborne){data=isPunch?C.AERIAL_PUNCH:C.AERIAL_KICK;this.setState(isPunch?C.STATE.AERIAL_PUNCH:C.STATE.AERIAL_KICK,data.startup+data.active+data.recovery);}
+        else if(this.comboStage>=3){data=C.KICK;this.setState(C.STATE.KICK,data.startup+data.active+data.recovery);this.comboStage=0;}
+        else{data=isPunch?C.PUNCH:C.KICK;this.setState(isPunch?C.STATE.PUNCH:C.STATE.KICK,data.startup+data.active+data.recovery);}
+        this._pendingHitbox={startup:data.startup,activeFrames:data.active,damage:data.damage,kbX:data.knockbackX,kbY:data.knockbackY,stun:data.stun,ox:data.hitbox.ox,oy:data.hitbox.oy,w:data.hitbox.w,h:data.hitbox.h};
+        return true;
+      }
+      startDash(){
+        if(this.dead||this.hitstun>0||this.hitStop>0)return false;if(!this.grounded)return false;if(this.dashCooldown>0)return false;if(this.state===C.STATE.DASH||this.state===C.STATE.DODGE)return false;
+        this.dashCooldown=C.DASH_COOLDOWN;this.invuln=C.DASH_INVULN;this.vx=this.facingDir*C.DASH_SPEED;this.setState(C.STATE.DASH,C.DASH_DURATION);return true;
+      }
+      startDodge(){
+        if(this.dead||this.hitstun>0||this.hitStop>0)return false;if(!this.grounded)return false;if(this.dodgeCooldown>0)return false;if(this.state===C.STATE.DASH||this.state===C.STATE.DODGE)return false;
+        this.dodgeCooldown=C.DODGE_COOLDOWN;this.invuln=C.DODGE_INVULN;this.vx=this.facingDir*C.DODGE_SPEED;this.setState(C.STATE.DODGE,C.DODGE_DURATION);return true;
+      }
+      startBlock(){if(this.canAct()&&this.grounded&&this.state!==C.STATE.BLOCK){this.setState(C.STATE.BLOCK,9999);return true;}return false;}
+      endBlock(){if(this.state===C.STATE.BLOCK)this.returnToNeutral();}
+      startCharge(){if(this.canAct()&&this.grounded&&this.state!==C.STATE.CHARGE&&this.energy<C.ENERGY_MAX){this.setState(C.STATE.CHARGE,9999);return true;}return false;}
+      endCharge(){if(this.state===C.STATE.CHARGE)this.returnToNeutral();}
+      startBeam(){if(this.canAct()&&this.energy>=C.BEAM_COST&&this.state!==C.STATE.PUNCH&&this.state!==C.STATE.KICK){this.energy-=C.BEAM_COST;this.chargeLevel=0;this.setState(C.STATE.BEAM,C.BEAM.lifetime+10);return true;}return false;}
+      takeDamage(damage,kbX,kbY,stun,attacker){
+        if(this.invuln>0||this.dead)return false;if(this.hitStop>0)return false;
+        let actual=damage;let blocked=false;
+        if(this.state===C.STATE.BLOCK){actual=Math.max(1,Math.floor(damage*C.BLOCK_DAMAGE_REDUCTION));blocked=true;stun=C.BLOCK_STUN;}
+        this.hp=Math.max(0,this.hp-actual);this.energy=Math.min(C.ENERGY_MAX,this.energy+C.ENERGY_GAIN_HIT);
+        this.invuln=C.INVULN_FRAMES;this.hitstun=blocked?C.BLOCK_STUN:C.HIT_STUN;
+        this.vx=kbX;this.vy=kbY;this.grounded=false;this.jumpCount=0;
+        if(this.hp<=0){this.die();}else{this.setState(C.STATE.HIT,20);}
+        return{damage:actual,blocked};
+      }
+      die(){this.hp=0;this.dead=true;this.setState(C.STATE.DEAD,9999);this.vx=0;this.vy=0;this.grounded=true;this.jumpCount=0;}
+      healEnergy(a){this.energy=Math.min(C.ENERGY_MAX,this.energy+a);}
+      updateHurtbox(){const hb=this.hurtbox;const hw=44;const hh=104;hb.left=this.x-hw/2;hb.right=this.x+hw/2;hb.top=this.y-hh/2;hb.bottom=this.y+hh/2;return hb;}
+      updateHitbox(){
+        const hb=this.hitbox;const p=this._pendingHitbox;const f=this.frame;
+        let active=false,d=0,kx=0,ky=0,s=0,ox=0,oy=0,w=0,h=0;
+        if(p){const{startup,activeFrames:af,damage:dmg,kbX:x,kbY:y,stun:st,ox:aox,oy:aoy,w:aw,h:ah}=p;if(f>=startup&&f<startup+af){active=true;d=dmg;k
